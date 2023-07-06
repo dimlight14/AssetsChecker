@@ -15,7 +15,6 @@ namespace DefaultNamespace
         private const string SCRIPTS_FOLDER_NAME = "Scripts/";
         private const string PACKAGES_FOLDER_NAME = "Packages/";
         private const string SCENES_FOLDER_NAME = "Scenes/";
-        private const string PROJECT_SETTINGS_FOLDER_NAME = "ProjectSettings/";
 
         private List<string> _directoriesFilter;
         private AssetEntry _currentAssetEntry;
@@ -159,16 +158,20 @@ namespace DefaultNamespace
 
         private void SetDirectoriesFilter(bool includePackages, bool includeScriptsFolder, bool includeScenes)
         {
+            if (includePackages && includeScriptsFolder && includeScenes)
+            {
+                _directoriesFilter = null;
+                return;
+            }
+            
             if (_directoriesFilter != null)
             {
                 _directoriesFilter.Clear();
             }
             else
             {
-                _directoriesFilter = new List<string>(4);
+                _directoriesFilter = new List<string>(3);
             }
-
-            _directoriesFilter.Add(PROJECT_SETTINGS_FOLDER_NAME);
 
             if (!includePackages)
             {
@@ -188,6 +191,11 @@ namespace DefaultNamespace
 
         private bool FilterByDirectories(string path)
         {
+            if (_directoriesFilter == null)
+            {
+                return true;
+            }
+            
             foreach (var directory in _directoriesFilter)
             {
                 if (path.Contains(directory))
