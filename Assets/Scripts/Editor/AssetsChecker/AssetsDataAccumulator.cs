@@ -7,6 +7,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Debug = UnityEngine.Debug;
+using Object = UnityEngine.Object;
 
 namespace DefaultNamespace
 {
@@ -14,7 +15,6 @@ namespace DefaultNamespace
     {
         private const string SCRIPTS_FOLDER_NAME = "Scripts/";
         private const string PACKAGES_FOLDER_NAME = "Packages/";
-        private const string SCENES_FOLDER_NAME = "Scenes/";
 
         private List<string> _directoriesFilter;
         private AssetEntry _currentAssetEntry;
@@ -23,10 +23,11 @@ namespace DefaultNamespace
         public void AccumulateMissingReferences(List<AssetEntry> missingReferencesAssets, bool includeScriptsFolder, bool includePackages, bool includeScenes)
         {
             _missingReferencesAssets = missingReferencesAssets;
-            SetDirectoriesFilter(includePackages, includeScriptsFolder, includeScenes);
+            SetDirectoriesFilter(includePackages, includeScriptsFolder);
 
             var assetPaths = AssetDatabase.GetAllAssetPaths().ToList();
             var count = 0;
+
             foreach (var assetPath in assetPaths)
             {
                 count++;
@@ -49,38 +50,49 @@ namespace DefaultNamespace
                     continue;
                 }
 
-                if (includeScenes && type == typeof(SceneAsset))
+                if (type == typeof(SceneAsset))
                 {
-                    CheckSceneObject(assetPath);
+                    if (includeScenes)
+                    {
+                        CheckSceneAsset(assetPath);
+                    }
+
                     continue;
                 }
 
                 var obj = AssetDatabase.LoadAssetAtPath(assetPath, type);
                 if (type == typeof(GameObject))
                 {
-                    CheckGameObject(obj as GameObject, assetPath, false);
+                    CheckPrefabAsset(obj as GameObject, assetPath, false);
                     continue;
                 }
-
-                using var serializedObject = new SerializedObject(obj);
-                var serializedProperty = serializedObject.GetIterator();
-
-                while (serializedProperty.NextVisible(true))
+                else
                 {
-                    if (serializedProperty.propertyType == SerializedPropertyType.ObjectReference)
-                    {
-                        if (serializedProperty.objectReferenceValue == null && serializedProperty.objectReferenceInstanceIDValue != 0)
-                        {
-                            AddAssetEntry(assetPath, type.ToString(), serializedProperty.displayName);
-                        }
-                    }
+                    CheckAsset(obj, assetPath, type);
                 }
             }
 
             EditorUtility.ClearProgressBar();
         }
 
-        private void CheckSceneObject(string assetPath)
+        private void CheckAsset(Object obj, string assetPath, Type type)
+        {
+            using var serializedObject = new SerializedObject(obj);
+            var serializedProperty = serializedObject.GetIterator();
+
+            while (serializedProperty.NextVisible(true))
+            {
+                if (serializedProperty.propertyType == SerializedPropertyType.ObjectReference)
+                {
+                    if (serializedProperty.objectReferenceValue == null && serializedProperty.objectReferenceInstanceIDValue != 0)
+                    {
+                        AddAssetEntry(assetPath, type.ToString(), serializedProperty.displayName);
+                    }
+                }
+            }
+        }
+
+        private void CheckSceneAsset(string assetPath)
         {
             Scene openScene;
             try
@@ -96,25 +108,25 @@ namespace DefaultNamespace
             var rootObjects = openScene.GetRootGameObjects();
             foreach (var rootObject in rootObjects)
             {
-                CheckGameObject(rootObject, openScene.path, true);
+                CheckPrefabAsset(rootObject, openScene.path, true);
             }
         }
 
-        private void AddAssetEntry(string assetPath, string type, string missingReference)
+        private void AddAssetEntry(string assetPath, string type, string errorString)
         {
             if (_currentAssetEntry == null || _currentAssetEntry.Path != assetPath)
             {
                 var shortType = type.Substring(type.LastIndexOf('.') + 1);
-                _currentAssetEntry = new AssetEntry(assetPath, shortType, missingReference);
+                _currentAssetEntry = new AssetEntry(assetPath, shortType, errorString);
                 _missingReferencesAssets.Add(_currentAssetEntry);
             }
             else
             {
-                _currentAssetEntry.AddMissingReference(missingReference);
+                _currentAssetEntry.AddMissingReference(errorString);
             }
         }
 
-        private void CheckGameObject(GameObject gameObject, string path, bool partOfScene)
+        private void CheckPrefabAsset(GameObject gameObject, string path, bool partOfScene)
         {
             if (PrefabUtility.IsPrefabAssetMissing(gameObject) || gameObject.name.Contains("Missing Prefab with guid"))
             {
@@ -152,18 +164,18 @@ namespace DefaultNamespace
 
             foreach (Transform child in gameObject.transform)
             {
-                CheckGameObject(child.gameObject, path, partOfScene);
+                CheckPrefabAsset(child.gameObject, path, partOfScene);
             }
         }
 
-        private void SetDirectoriesFilter(bool includePackages, bool includeScriptsFolder, bool includeScenes)
+        private void SetDirectoriesFilter(bool includePackages, bool includeScriptsFolder)
         {
-            if (includePackages && includeScriptsFolder && includeScenes)
+            if (includePackages && includeScriptsFolder)
             {
                 _directoriesFilter = null;
                 return;
             }
-            
+
             if (_directoriesFilter != null)
             {
                 _directoriesFilter.Clear();
@@ -182,11 +194,6 @@ namespace DefaultNamespace
             {
                 _directoriesFilter.Add(SCRIPTS_FOLDER_NAME);
             }
-
-            if (!includeScenes)
-            {
-                _directoriesFilter.Add(SCENES_FOLDER_NAME);
-            }
         }
 
         private bool FilterByDirectories(string path)
@@ -195,7 +202,7 @@ namespace DefaultNamespace
             {
                 return true;
             }
-            
+
             foreach (var directory in _directoriesFilter)
             {
                 if (path.Contains(directory))

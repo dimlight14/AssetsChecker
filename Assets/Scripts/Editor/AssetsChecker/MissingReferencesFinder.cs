@@ -191,20 +191,20 @@ namespace DefaultNamespace
 
             assetEntry.MarkedAsResolved = EditorGUILayout.ToggleLeft("Resolved?", assetEntry.MarkedAsResolved, GUILayout.Width(110f));
 
-            EditorGUILayout.LabelField(assetEntry.MissingReferencesCount.ToString(), GUILayout.Width(100f));
-            if (assetEntry.MissingReferencesCount == 1)
+            EditorGUILayout.LabelField(assetEntry.ErrorCount.ToString(), GUILayout.Width(100f));
+            if (assetEntry.ErrorCount == 1)
             {
-                GUILayout.Label(assetEntry.MissingReferencesStrings[0]);
+                GUILayout.Label(assetEntry.ErrorStrings[0]);
             }
-            else if (assetEntry.MissingReferencesCount > 1)
+            else if (assetEntry.ErrorCount > 1)
             {
                 EditorGUILayout.BeginVertical();
-                assetEntry.FoldoutOpen = EditorGUILayout.Foldout(assetEntry.FoldoutOpen, assetEntry.MissingReferencesStrings[0]);
+                assetEntry.FoldoutOpen = EditorGUILayout.Foldout(assetEntry.FoldoutOpen, assetEntry.ErrorStrings[0]);
                 if (assetEntry.FoldoutOpen)
                 {
-                    for (var index = 1; index < assetEntry.MissingReferencesStrings.Count; index++)
+                    for (var index = 1; index < assetEntry.ErrorStrings.Count; index++)
                     {
-                        GUILayout.Label(assetEntry.MissingReferencesStrings[index]);
+                        GUILayout.Label(assetEntry.ErrorStrings[index]);
                     }
                 }
 
